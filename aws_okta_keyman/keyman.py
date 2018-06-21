@@ -38,6 +38,7 @@ class Keyman:
         self.okta_client = None
         self.log = self.setup_logging()
         self.log.info('{} v{}'.format(__desc__, __version__))
+        self.all_roles = []
         self.config = Config(argv)
         try:
             self.config.get_config()
@@ -110,7 +111,11 @@ class Keyman:
             msg = 'No app ID provided; select from available AWS accounts'
             self.log.warning(msg)
             accts = self.config.accounts
-            acct_selection = self.selector_menu(accts, 'name', 'Account')
+            acct_selection = None
+            if len(accts) == 1:
+                acct_selection = 0
+            else:
+                acct_selection = self.selector_menu(accts, 'name', 'Account')
             self.config.set_appid_from_account_id(acct_selection)
             msg = "Using account: {} / {}".format(
                 accts[acct_selection]["name"], accts[acct_selection]["appid"]
@@ -178,10 +183,33 @@ class Keyman:
         """
         self.log.warning('Multiple AWS roles found; please select one')
         roles = session.available_roles()
-        role_selection = self.selector_menu(roles, 'role', 'Role')
-        session.set_role(role_selection)
-        session.assume_role()
-        return role_selection
+        self.all_roles = roles
+        self.all_roles.append({'principle': '', 'role': 'ALL'})
+        role_selection = self.selector_menu(self.all_roles, 'role', 'Role')
+
+        default_role_selection = None
+        if self.all_roles[role_selection]['role'] == 'ALL':
+            self.log.warning('Select default role selection')
+            default_role_selection = self.selector_menu(self.all_roles[:-1], 'role', 'Role')
+            self.log.info('Using default role selection: {}'.format(default_role_selection))
+        return self.set_role_selection(session, role_selection, default_role_selection)
+
+    def set_role_selection(self, session, role_selection, default_role_selection):
+        if self.all_roles[role_selection]['role'] == 'ALL':
+            for index, role in enumerate(self.all_roles[:-1]):
+                self.log.info("iterating through role: " + role['role'])
+                session.set_role(index)
+                session.assume_role(write_default_profile=False)
+            if default_role_selection != None:
+                self.log.info("Setting default role: " + self.all_roles[default_role_selection]['role'])
+                session.set_role(default_role_selection)
+                session.assume_role()
+        else:
+            session.set_role(role_selection)
+            session.assume_role()
+
+        session.log_expiration_info()
+        return (role_selection, default_role_selection)
 
     def start_session(self):
         """Initialize AWS session object."""
@@ -191,7 +219,7 @@ class Keyman:
         except okta.UnknownError:
             sys.exit(1)
 
-        return aws.Session(assertion, profile=self.config.name)
+        return aws.Session(assertion, profile=self.config.name, role_aliases=self.config.rolealiases)
 
     def aws_auth_loop(self):
         """Once we're authenticated with an OktaSaml client object we use that
@@ -200,6 +228,7 @@ class Keyman:
         """
         session = None
         role_selection = None
+        default_role_selection = None
         retries = 0
         while True:
             # If we have a session and it's valid take a nap
@@ -218,12 +247,12 @@ class Keyman:
                 # role on the session to prevent the user being prompted for
                 # the role again on each subsequent renewal.
                 if role_selection is not None:
-                    session.set_role(role_selection)
+                    self.set_role_selection(session, role_selection, default_role_selection)
 
                 session.assume_role()
 
             except aws.MultipleRoles:
-                role_selection = self.handle_multiple_roles(session)
+                role_selection, default_role_selection = self.handle_multiple_roles(session)
             except requests.exceptions.ConnectionError:
                 self.log.warning('Connection error... will retry')
                 time.sleep(5)

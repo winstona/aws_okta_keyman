@@ -113,7 +113,8 @@ class Session(object):
                  assertion,
                  credential_path='~/.aws',
                  profile='default',
-                 region='us-east-1'):
+                 region='us-east-1',
+                 role_aliases=[]):
         cred_dir = expanduser(credential_path)
         cred_file = os.path.join(cred_dir, 'credentials')
 
@@ -132,6 +133,7 @@ class Session(object):
 
         self.assertion = SamlAssertion(assertion)
         self.writer = Credentials(cred_file)
+        self.role_aliases = role_aliases
 
         # Populated by self.assume_role()
         self.creds = {
@@ -182,7 +184,7 @@ class Session(object):
         """Return the roles availble from AWS."""
         return self.assertion.roles()
 
-    def assume_role(self):
+    def assume_role(self, write_default_profile=True):
         """Use the SAML Assertion to actually get the credentials.
 
         Uses the supplied (one time use!) SAML Assertion to go out to Amazon
@@ -206,15 +208,29 @@ class Session(object):
             PrincipalArn=self.role['principle'],
             SAMLAssertion=self.assertion.encode())
         self.creds = session['Credentials']
-        self._write()
+        if write_default_profile:
+            self._write()
 
-    def _write(self):
-        """Write out our secrets to the Credentials object."""
-        self.writer.add_profile(
-            name=self.profile,
-            region=self.region,
-            creds=self.creds)
+        role_name = self.role['role'].replace('arn:aws:iam::', '')
+        profile_name = None
+        for alias in self.role_aliases:
+            if role_name == alias['role']:
+                profile_name = alias['alias']
+        if not profile_name:
+            profile_name = role_name
+        self._write(profile_name=profile_name)
+
+    def log_expiration_info(self):
         LOG.info('Current time is {time}'.format(
             time=datetime.datetime.utcnow()))
         LOG.info('Session expires at {time}'.format(
             time=self.creds['Expiration']))
+
+    def _write(self, profile_name=None):
+        if not profile_name:
+            profile_name = self.profile
+        """Write out our secrets to the Credentials object."""
+        self.writer.add_profile(
+            name=profile_name,
+            region=self.region,
+            creds=self.creds)

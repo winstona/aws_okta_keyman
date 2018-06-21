@@ -17,7 +17,7 @@ tool has a few core features.
 
 ## Optional MFA Authentication
 
-If you organization requires MFA for the _[initial login into Okta][okta_mfa]_, 
+If you organization requires MFA for the _[initial login into Okta][okta_mfa]_,
 we will automatically detect that requirement during authentication and prompt
 the user to complete the Multi Factor Authentication.
 
@@ -93,6 +93,11 @@ Example config file:
         appid: exampleAppIDFromOkta/234
       - name: Prod
         appid: exampleAppIDFromOkta/345
+    rolealiases:
+      - role: 012345678910:role/admin_full
+        alias: admin
+      - role: 012345678910:role/readonly
+        alias: readonly
 
 When used you'll get a similar interface to AWS Role selection but for your AWS
 accounts:
@@ -123,7 +128,7 @@ Typical usage:
 
     $ aws_okta_keyman -a <application id> -o <your org name> -u <your username>
     08:27:44   (INFO) AWS Okta Keyman v0.2.0
-    Password: 
+    Password:
     08:27:48   (WARNING) Okta Verify Push being sent...
     08:27:48   (INFO) Waiting for Okta Verification...
     ...
@@ -158,7 +163,7 @@ environment is quick and easy.
     $ source .venv/bin/activate
     $ pip install -r requirements.txt
     $ pip install -r test_requirements.txt
-    
+
 ## Python Versions
 
 Python 2.7.1+ and Python 3.5.0+ are supported
@@ -181,7 +186,7 @@ Copyright 2018 Nextdoor.com, Inc
 Licensed under the Apache License, Version 2.0. See LICENSE.txt file for details.
 
 Some code in `aws_okta_keyman/okta.py`, `aws_okta_keyman/aws.py`,
-`aws_okta_keyman/aws_saml.py`, and `aws_okta_keyman/test/aws_saml_test.py` is 
+`aws_okta_keyman/aws_saml.py`, and `aws_okta_keyman/test/aws_saml_test.py` is
 distributed under MIT license. See the source files for details. A copy of the
 license is in the LICENSE_MIT.txt file.
 
