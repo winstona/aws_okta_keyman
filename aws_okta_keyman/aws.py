@@ -114,7 +114,7 @@ class Session(object):
                  credential_path='~/.aws',
                  profile='default',
                  region='us-east-1',
-                 role_aliases=[]):
+                 role_aliases={}):
         cred_dir = expanduser(credential_path)
         cred_file = os.path.join(cred_dir, 'credentials')
 

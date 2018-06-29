@@ -43,7 +43,7 @@ class Config:
         self.appid = None
         self.name = 'default'
         self.oktapreview = None
-        self.rolealiases = None
+        self.rolealiases = {}
 
     def set_appid_from_account_id(self, account_id):
         """Take an account ID (list index) and sets the appid based on that."""
