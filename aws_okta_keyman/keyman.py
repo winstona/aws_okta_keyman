@@ -100,7 +100,10 @@ class Keyman:
         while selection < 0 or selection > len(options):
             for index, option in enumerate(options):
                 print("[{}] {}: {}".format(index, key_name, option[key]))
-            selection = int(self.user_input("{} selection: ".format(key_name)))
+            try:
+                selection = int(self.user_input("{} selection: ".format(key_name)))
+            except ValueError:
+                selection = -1
         return selection
 
     def handle_appid_selection(self):
